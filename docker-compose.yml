@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  home-hub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: home-hub
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATA_DIR=/data
+      - DOCKER_SOCKET=/var/run/docker.sock
+      - DOCKER_HOST_IP=host.docker.internal
+    volumes:
+      # Mount Docker socket (read-only)
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Persist icon cache
+      - ./data:/data
+    ports:
+      - "3000:3000"
+    networks:
+      - home-hub-network
+
+networks:
+  home-hub-network:
+    driver: bridge

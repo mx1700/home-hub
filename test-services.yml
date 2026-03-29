@@ -1,0 +1,24 @@
+version: '3'
+services:
+  nginx-test:
+    image: nginx:alpine
+    container_name: nginx-test
+    labels:
+      - "home-hub.name=Nginx Test"
+      - "home-hub.port=80"
+      - "home-hub.category=测试"
+      - "home-hub.description=Nginx test server"
+      - "home-hub.icon=https://nginx.org/nginx.png"
+    ports:
+      - "8888:80"
+
+  whoami:
+    image: traefik/whoami
+    container_name: whoami-test
+    labels:
+      - "home-hub.name=Whoami"
+      - "home-hub.port=80"
+      - "home-hub.category=工具"
+      - "home-hub.description=显示请求信息"
+    ports:
+      - "8889:80"
