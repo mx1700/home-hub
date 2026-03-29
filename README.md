@@ -14,7 +14,8 @@
 - 🏷️ **标签配置** - 通过 Docker 标签灵活配置每个服务
 - 🎨 **图标缓存** - 自动下载并缓存服务图标，支持图标更新检测
 - 📊 **状态显示** - 实时显示服务在线/离线状态
-- 📁 **分类管理** - 按类别分组展示服务
+- 📁 **分类管理** - 按类别分组展示服务，支持自定义分类排序
+- 📝 **配置热更新** - 修改分类排序配置无需重启服务即时生效
 - 🌓 **深色模式** - 支持深色主题
 - 📱 **响应式设计** - 完美适配桌面和移动设备
 
@@ -85,6 +86,35 @@ services:
 1. `home-hub.url` - 如果设置，直接使用
 2. `home-hub.host` + `home-hub.port` - 组合构建 `http://{host}:{port}`
 3. Docker Host IP + `home-hub.port` - 默认使用宿主机IP
+
+## 📂 分类排序配置
+
+通过 `data/categories.json` 配置文件可以自定义分类的显示顺序：
+
+```json
+{
+  "categories": [
+    { "name": "系统", "order": 0 },
+    { "name": "媒体", "order": 1 },
+    { "name": "工具", "order": 2 }
+  ],
+  "defaultOrder": 999
+}
+```
+
+### 配置说明
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `categories` | 数组 | 分类列表，每个分类包含 `name`（分类名称）和 `order`（排序权重，数字越小越靠前）|
+| `defaultOrder` | 数字 | 未配置分类的默认排序权重，未在列表中的分类将按此值排序 |
+
+### 热更新
+
+配置文件支持**热更新**：
+- 修改 `data/categories.json` 后保存
+- 前端会自动接收到配置变更并重新排序分组
+- **无需重启服务**即可生效
 
 ## 🐳 部署示例
 
@@ -164,13 +194,15 @@ home-hub/
 │   │   ├── ServiceCard.tsx  # 服务卡片
 │   │   └── ServiceGrid.tsx  # 服务网格布局
 │   ├── lib/
+│   │   ├── categories.ts    # 分类管理（配置热更新）
 │   │   ├── docker.ts        # Docker API 客户端
 │   │   ├── icons.ts         # 图标管理
 │   │   ├── store.ts         # 状态管理
 │   │   └── use-sse.ts       # SSE hook
 │   ├── routes/              # API 路由
 │   └── types/               # TypeScript 类型
-├── data/                    # 图标缓存目录
+├── data/                    # 数据目录
+│   └── categories.json      # 分类排序配置
 ├── Dockerfile
 └── docker-compose.yml
 ```
