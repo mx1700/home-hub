@@ -19,7 +19,8 @@ class CategoryManager {
   private isWatching = false;
 
   constructor() {
-    this.configPath = join(process.cwd(), 'data', 'categories.json');
+    const dataDir = process.env.DATA_DIR || join(process.cwd(), 'data');
+    this.configPath = join(dataDir, 'categories.json');
     this.loadConfig();
     this.startWatching();
   }
