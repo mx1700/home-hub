@@ -1,5 +1,6 @@
 import type { Route } from "./+types/api.events";
 import { serviceStore } from "~/lib/store";
+import { categoryManager } from "~/lib/categories";
 import { initializeServices } from "~/lib/init";
 
 // Initialize on first request
@@ -17,19 +18,32 @@ export async function loader({ request }: Route.LoaderArgs) {
     start(controller) {
       // Send initial data
       const services = serviceStore.getServices();
+      const categoriesConfig = categoryManager.getConfig();
       controller.enqueue(
-        encoder.encode(`data: ${JSON.stringify({ type: 'services.update', services })}\n\n`)
+        encoder.encode(`data: ${JSON.stringify({ type: 'init', services, categoriesConfig })}\n\n`)
       );
 
       // Subscribe to store changes
-      const unsubscribe = serviceStore.onChange((services) => {
+      const unsubscribeServices = serviceStore.onChange((services) => {
         try {
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: 'services.update', services })}\n\n`)
           );
         } catch (error) {
           // Client disconnected
-          unsubscribe();
+          unsubscribeServices();
+        }
+      });
+
+      // Subscribe to category config changes
+      const unsubscribeCategories = categoryManager.onChange((categoriesConfig) => {
+        try {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ type: 'categories.update', categoriesConfig })}\n\n`)
+          );
+        } catch (error) {
+          // Client disconnected
+          unsubscribeCategories();
         }
       });
 
@@ -39,14 +53,16 @@ export async function loader({ request }: Route.LoaderArgs) {
           controller.enqueue(encoder.encode(`:heartbeat\n\n`));
         } catch (error) {
           clearInterval(heartbeat);
-          unsubscribe();
+          unsubscribeServices();
+          unsubscribeCategories();
         }
       }, 30000);
 
       // Cleanup on abort
       request.signal.addEventListener('abort', () => {
         clearInterval(heartbeat);
-        unsubscribe();
+        unsubscribeServices();
+        unsubscribeCategories();
       });
     },
   });

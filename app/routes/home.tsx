@@ -10,7 +10,7 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Home() {
-  const { services, connected, error } = useSSE();
+  const { services, categoriesConfig, connected, error } = useSSE();
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -45,7 +45,7 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <ServiceGrid services={services} />
+        <ServiceGrid services={services} categoriesConfig={categoriesConfig} />
       </main>
     </div>
   );

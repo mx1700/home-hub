@@ -1,13 +1,19 @@
 import { useEffect, useState } from 'react';
 import type { Service } from '~/types';
+import type { CategoriesConfig } from './categories';
 
 interface SSEMessage {
-  type: 'services.update';
-  services: Service[];
+  type: 'init' | 'services.update' | 'categories.update';
+  services?: Service[];
+  categoriesConfig?: CategoriesConfig;
 }
 
 export function useSSE() {
   const [services, setServices] = useState<Service[]>([]);
+  const [categoriesConfig, setCategoriesConfig] = useState<CategoriesConfig>({
+    categories: [],
+    defaultOrder: 999,
+  });
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,6 +24,9 @@ export function useSSE() {
       .then(data => {
         if (data.services) {
           setServices(data.services);
+        }
+        if (data.categoriesConfig) {
+          setCategoriesConfig(data.categoriesConfig);
         }
       })
       .catch(err => console.error('Failed to fetch services:', err));
@@ -38,8 +47,21 @@ export function useSSE() {
       eventSource.onmessage = (event) => {
         try {
           const data: SSEMessage = JSON.parse(event.data);
-          if (data.type === 'services.update') {
-            setServices(data.services);
+          if (data.type === 'init') {
+            if (data.services) {
+              setServices(data.services);
+            }
+            if (data.categoriesConfig) {
+              setCategoriesConfig(data.categoriesConfig);
+            }
+          } else if (data.type === 'services.update') {
+            if (data.services) {
+              setServices(data.services);
+            }
+          } else if (data.type === 'categories.update') {
+            if (data.categoriesConfig) {
+              setCategoriesConfig(data.categoriesConfig);
+            }
           }
         } catch (err) {
           console.error('Failed to parse SSE message:', err);
@@ -64,5 +86,5 @@ export function useSSE() {
     };
   }, []);
 
-  return { services, connected, error };
+  return { services, categoriesConfig, connected, error };
 }

@@ -1,5 +1,6 @@
 import type { Route } from "./+types/api.services";
 import { serviceStore } from "~/lib/store";
+import { categoryManager } from "~/lib/categories";
 import { initializeServices } from "~/lib/init";
 
 // Initialize on first request
@@ -13,8 +14,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   await initPromise;
 
   const services = serviceStore.getServices();
+  const categoriesConfig = categoryManager.getConfig();
 
-  return new Response(JSON.stringify({ services }), {
+  return new Response(JSON.stringify({ services, categoriesConfig }), {
     headers: {
       "Content-Type": "application/json",
     },

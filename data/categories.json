@@ -1,0 +1,8 @@
+{
+  "categories": [
+    { "name": "系统", "order": 0 },
+    { "name": "媒体", "order": 1 },
+    { "name": "工具", "order": 2 }
+  ],
+  "defaultOrder": 999
+}
