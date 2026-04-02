@@ -1,6 +1,7 @@
 import { ServiceCard } from './ServiceCard';
 import type { Service } from '~/types';
 import type { CategoriesConfig } from '~/lib/categories';
+import { categoryManager } from '~/lib/categories';
 
 interface ServiceGridProps {
   services: Service[];
@@ -16,7 +17,6 @@ export function ServiceGrid({ services, categoriesConfig }: ServiceGridProps) {
     );
   }
 
-  // Group services by category
   const grouped = services.reduce((acc, service) => {
     const category = service.category || '其他';
     if (!acc[category]) {
@@ -26,23 +26,7 @@ export function ServiceGrid({ services, categoriesConfig }: ServiceGridProps) {
     return acc;
   }, {} as Record<string, Service[]>);
 
-  // Get category order from config
-  const getCategoryOrder = (categoryName: string): number => {
-    const category = categoriesConfig.categories.find(c => c.name === categoryName);
-    return category?.order ?? categoriesConfig.defaultOrder;
-  };
-
-  // Sort categories by order
-  const sortedCategories = Object.keys(grouped).sort((a, b) => {
-    const orderA = getCategoryOrder(a);
-    const orderB = getCategoryOrder(b);
-
-    if (orderA !== orderB) {
-      return orderA - orderB;
-    }
-
-    return a.localeCompare(b, 'zh-CN');
-  });
+  const sortedCategories = categoryManager.getSortedCategories(Object.keys(grouped));
 
   return (
     <div className="space-y-8">
