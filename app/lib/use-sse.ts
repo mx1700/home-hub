@@ -8,6 +8,15 @@ interface SSEMessage {
   categoriesConfig?: CategoriesConfig;
 }
 
+function isSSEMessage(data: unknown): data is SSEMessage {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'type' in data &&
+    ['init', 'services.update', 'categories.update'].includes((data as any).type)
+  );
+}
+
 export function useSSE() {
   const [services, setServices] = useState<Service[]>([]);
   const [categoriesConfig, setCategoriesConfig] = useState<CategoriesConfig>({
@@ -46,23 +55,27 @@ export function useSSE() {
 
       eventSource.onmessage = (event) => {
         try {
-          const data: SSEMessage = JSON.parse(event.data);
-          if (data.type === 'init') {
-            if (data.services) {
-              setServices(data.services);
-            }
-            if (data.categoriesConfig) {
-              setCategoriesConfig(data.categoriesConfig);
-            }
-          } else if (data.type === 'services.update') {
-            if (data.services) {
-              setServices(data.services);
-            }
-          } else if (data.type === 'categories.update') {
-            if (data.categoriesConfig) {
-              setCategoriesConfig(data.categoriesConfig);
-            }
+          const parsed = JSON.parse(event.data);
+          
+          if (!isSSEMessage(parsed)) {
+            console.error('Invalid SSE message format:', parsed);
+            return;
           }
+
+          const handlers: Record<SSEMessage['type'], () => void> = {
+            'init': () => {
+              parsed.services && setServices(parsed.services);
+              parsed.categoriesConfig && setCategoriesConfig(parsed.categoriesConfig);
+            },
+            'services.update': () => {
+              parsed.services && setServices(parsed.services);
+            },
+            'categories.update': () => {
+              parsed.categoriesConfig && setCategoriesConfig(parsed.categoriesConfig);
+            },
+          };
+
+          handlers[parsed.type]?.();
         } catch (err) {
           console.error('Failed to parse SSE message:', err);
         }
