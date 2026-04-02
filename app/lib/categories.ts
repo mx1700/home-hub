@@ -1,6 +1,7 @@
 import { watchFile, unwatchFile } from 'fs';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
+import { EventEmitter } from './event-emitter';
 
 export interface CategoryConfig {
   name: string;
@@ -14,7 +15,7 @@ export interface CategoriesConfig {
 
 class CategoryManager {
   private config: CategoriesConfig = { categories: [], defaultOrder: 999 };
-  private listeners: ((config: CategoriesConfig) => void)[] = [];
+  private emitter = new EventEmitter<CategoriesConfig>();
   private configPath: string;
   private isWatching = false;
 
@@ -29,7 +30,7 @@ class CategoryManager {
     try {
       const content = await readFile(this.configPath, 'utf-8');
       this.config = JSON.parse(content);
-      this.notifyListeners();
+      this.emitter.emit(this.config);
     } catch (error) {
       console.error('Failed to load categories config:', error);
       this.config = { categories: [], defaultOrder: 999 };
@@ -75,24 +76,7 @@ class CategoryManager {
   }
 
   onChange(listener: (config: CategoriesConfig) => void): () => void {
-    this.listeners.push(listener);
-
-    return () => {
-      const index = this.listeners.indexOf(listener);
-      if (index >= 0) {
-        this.listeners.splice(index, 1);
-      }
-    };
-  }
-
-  private notifyListeners(): void {
-    for (const listener of this.listeners) {
-      try {
-        listener(this.config);
-      } catch (error) {
-        console.error('Error in category listener:', error);
-      }
-    }
+    return this.emitter.subscribe(listener);
   }
 
   stopWatching(): void {
