@@ -13,6 +13,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
   await initPromise;
   const encoder = new TextEncoder();
+  let cleanupFn: (() => void) | null = null;
 
   const stream = new ReadableStream({
     start(controller) {
@@ -50,27 +51,25 @@ export async function loader({ request }: Route.LoaderArgs) {
         try {
           controller.enqueue(encoder.encode(`:heartbeat\n\n`));
         } catch (error) {
-          // Client disconnected
           cleanup();
         }
       }, 30000);
 
-      // Cleanup function
       const cleanup = () => {
         clearInterval(heartbeat);
         unsubscribeServices();
         unsubscribeCategories();
+        request.signal.removeEventListener('abort', cleanup);
       };
 
-      // Cleanup on abort
+      cleanupFn = cleanup;
       request.signal.addEventListener('abort', cleanup, { once: true });
-
-      // Store cleanup for cancel handler
-      (controller as any)._cleanup = cleanup;
     },
     cancel() {
-      // This is called when the stream is cancelled (client disconnected)
-      // Note: cleanup is handled by abort event, but this provides a fallback
+      if (cleanupFn) {
+        cleanupFn();
+        cleanupFn = null;
+      }
     },
   });
 

@@ -7,13 +7,16 @@ const DATA_DIR = process.env.DATA_DIR || "./data";
 const DOCKER_HOST_IP = process.env.DOCKER_HOST_IP || "host.docker.internal";
 
 let initialized = false;
+let dockerMonitor: DockerMonitor | null = null;
+let iconManager: IconManager | null = null;
+let unsubscribeDocker: (() => void) | null = null;
 
 export async function initializeServices() {
   if (initialized) return;
 
   try {
-    const dockerMonitor = new DockerMonitor(DOCKER_SOCKET, DOCKER_HOST_IP);
-    const iconManager = new IconManager(DATA_DIR);
+    dockerMonitor = new DockerMonitor(DOCKER_SOCKET, DOCKER_HOST_IP);
+    iconManager = new IconManager(DATA_DIR);
 
     // Initial scan
     const services = await dockerMonitor.scanServices();
@@ -24,7 +27,7 @@ export async function initializeServices() {
     // Update icon paths
     const servicesWithIcons = services.map(service => ({
       ...service,
-      icon: iconManager.getIconPath(service.icon) || service.icon,
+      icon: iconManager!.getIconPath(service.icon) || service.icon,
     }));
 
     serviceStore.setServices(servicesWithIcons);
@@ -33,13 +36,15 @@ export async function initializeServices() {
     await dockerMonitor.startEventListener();
 
     // Subscribe to Docker events
-    dockerMonitor.onServicesUpdate(async (services) => {
-      await iconManager.updateServiceIcons(services);
-      const servicesWithIcons = services.map(service => ({
+    unsubscribeDocker = dockerMonitor.onServicesUpdate(async (services) => {
+      const manager = iconManager;
+      if (!manager) return;
+      await manager.updateServiceIcons(services);
+      const updatedServices = services.map(service => ({
         ...service,
-        icon: iconManager.getIconPath(service.icon) || service.icon,
+        icon: manager.getIconPath(service.icon) || service.icon,
       }));
-      serviceStore.setServices(servicesWithIcons);
+      serviceStore.setServices(updatedServices);
     });
 
     initialized = true;
@@ -48,3 +53,41 @@ export async function initializeServices() {
     console.error("Failed to initialize services:", error);
   }
 }
+
+export function cleanup() {
+  if (unsubscribeDocker) {
+    unsubscribeDocker();
+    unsubscribeDocker = null;
+  }
+  if (dockerMonitor) {
+    dockerMonitor.stopEventListener();
+    dockerMonitor = null;
+  }
+  iconManager = null;
+  initialized = false;
+}
+
+export function getMemoryUsage() {
+  const usage = process.memoryUsage();
+  return {
+    heapUsed: Math.round(usage.heapUsed / 1024 / 1024),
+    heapTotal: Math.round(usage.heapTotal / 1024 / 1024),
+    rss: Math.round(usage.rss / 1024 / 1024),
+    external: Math.round(usage.external / 1024 / 1024),
+  };
+}
+
+setInterval(() => {
+  const mem = getMemoryUsage();
+  console.log(`Memory: RSS=${mem.rss}MB, Heap=${mem.heapUsed}/${mem.heapTotal}MB`);
+}, 60000);
+
+process.on('SIGTERM', () => {
+  cleanup();
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  cleanup();
+  process.exit(0);
+});

@@ -8,6 +8,7 @@ export class IconManager {
   private manifestPath: string;
   private manifest: IconManifest = {};
   private iconFileCache: Map<string, string | null> = new Map();
+  private readonly MAX_CACHE_SIZE = 1000;
 
   constructor(dataDir: string) {
     this.iconsDir = path.join(dataDir, 'icons');
@@ -33,6 +34,16 @@ export class IconManager {
     fs.writeFileSync(this.manifestPath, JSON.stringify(this.manifest, null, 2));
   }
 
+  private pruneCache(): void {
+    if (this.iconFileCache.size > this.MAX_CACHE_SIZE) {
+      const entries = Array.from(this.iconFileCache.entries());
+      const toDelete = entries.slice(0, entries.length - this.MAX_CACHE_SIZE);
+      for (const [key] of toDelete) {
+        this.iconFileCache.delete(key);
+      }
+    }
+  }
+
   getUrlHash(url: string): string {
     return createHash('sha256').update(url).digest('hex').slice(0, 12);
   }
@@ -55,10 +66,12 @@ export class IconManager {
     if (iconFile) {
       const iconPath = `/icons/${iconFile}`;
       this.iconFileCache.set(hash, iconPath);
+      this.pruneCache();
       return iconPath;
     }
 
     this.iconFileCache.set(hash, null);
+    this.pruneCache();
     return null;
   }
 

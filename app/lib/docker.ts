@@ -1,4 +1,5 @@
 import Docker from 'dockerode';
+import type { Readable } from 'stream';
 import type { Service, ServiceConfig } from '~/types';
 import { buildServiceUrl, parseLabelValue, parseLabelNumber } from './utils';
 
@@ -13,6 +14,7 @@ export class DockerMonitor {
   private docker: Docker;
   private dockerHostIp: string;
   private eventHandlers: ((services: Service[]) => void)[] = [];
+  private eventStream: Readable | null = null;
 
   constructor(socketPath: string, dockerHostIp: string = 'localhost') {
     this.docker = new Docker({ socketPath });
@@ -65,13 +67,17 @@ export class DockerMonitor {
   }
 
   async startEventListener(): Promise<void> {
-    const stream = await this.docker.getEvents();
+    if (this.eventStream) {
+      (this.eventStream as any).destroy();
+    }
+
+    const stream = (await this.docker.getEvents()) as any;
+    this.eventStream = stream;
 
     stream.on('data', async (chunk: Buffer) => {
       try {
         const event = JSON.parse(chunk.toString());
 
-        // Only handle container-related events
         if (event.Type === 'container') {
           const services = await this.scanServices();
           this.notifyHandlers(services);
@@ -81,9 +87,16 @@ export class DockerMonitor {
       }
     });
 
-    stream.on('error', (error) => {
+    stream.on('error', (error: Error) => {
       console.error('Docker event stream error:', error);
     });
+  }
+
+  stopEventListener(): void {
+    if (this.eventStream) {
+      (this.eventStream as any).destroy();
+      this.eventStream = null;
+    }
   }
 
   onServicesUpdate(handler: (services: Service[]) => void): () => void {
