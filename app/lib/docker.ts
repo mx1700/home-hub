@@ -2,6 +2,7 @@ import Docker from 'dockerode';
 import type { Readable } from 'stream';
 import type { Service, ServiceConfig } from '~/types';
 import { buildServiceUrl, parseLabelValue, parseLabelNumber } from './utils';
+import { EventEmitter } from './event-emitter';
 
 interface ContainerInfo {
   Id: string;
@@ -13,7 +14,7 @@ interface ContainerInfo {
 export class DockerMonitor {
   private docker: Docker;
   private dockerHostIp: string;
-  private eventHandlers: ((services: Service[]) => void)[] = [];
+  private emitter = new EventEmitter<Service[]>();
   private eventStream: Readable | null = null;
 
   constructor(socketPath: string, dockerHostIp: string = 'localhost') {
@@ -80,7 +81,7 @@ export class DockerMonitor {
 
         if (event.Type === 'container') {
           const services = await this.scanServices();
-          this.notifyHandlers(services);
+          this.emitter.emit(services);
         }
       } catch (error) {
         console.error('Error parsing Docker event:', error);
@@ -100,24 +101,6 @@ export class DockerMonitor {
   }
 
   onServicesUpdate(handler: (services: Service[]) => void): () => void {
-    this.eventHandlers.push(handler);
-    
-    // Return unsubscribe function
-    return () => {
-      const index = this.eventHandlers.indexOf(handler);
-      if (index >= 0) {
-        this.eventHandlers.splice(index, 1);
-      }
-    };
-  }
-
-  private notifyHandlers(services: Service[]): void {
-    for (const handler of this.eventHandlers) {
-      try {
-        handler(services);
-      } catch (error) {
-        console.error('Error in event handler:', error);
-      }
-    }
+    return this.emitter.subscribe(handler);
   }
 }

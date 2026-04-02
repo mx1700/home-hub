@@ -43,7 +43,7 @@ export function useSSE() {
 
   useEffect(() => {
     let eventSource: EventSource | null = null;
-    let reconnectTimeout: ReturnType<typeof setTimeout>;
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const connect = () => {
       eventSource = new EventSource('/api/events');
@@ -94,7 +94,9 @@ export function useSSE() {
     connect();
 
     return () => {
-      clearTimeout(reconnectTimeout);
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
       eventSource?.close();
     };
   }, []);
