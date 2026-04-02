@@ -1,6 +1,6 @@
+import React from 'react';
 import type { Service } from '~/types';
 import type { CategoriesConfig } from '~/lib/categories';
-import React from 'react';
 import { categoryManager } from '~/lib/categories';
 import { ServiceCard } from './ServiceCard';
 
