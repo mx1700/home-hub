@@ -1,8 +1,9 @@
 import type { Service } from '~/types';
+import { EventEmitter } from './event-emitter';
 
 export class ServiceStore {
   private services: Service[] = [];
-  private listeners: ((services: Service[]) => void)[] = [];
+  private emitter = new EventEmitter<Service[]>();
 
   getServices(): Service[] {
     return [...this.services];
@@ -10,39 +11,20 @@ export class ServiceStore {
 
   setServices(services: Service[]): void {
     this.services = services;
-    this.notifyListeners();
+    this.emitter.emit(this.services);
   }
 
   updateService(updatedService: Service): void {
     const index = this.services.findIndex(s => s.id === updatedService.id);
     if (index >= 0) {
       this.services[index] = updatedService;
-      this.notifyListeners();
+      this.emitter.emit(this.services);
     }
   }
 
   onChange(listener: (services: Service[]) => void): () => void {
-    this.listeners.push(listener);
-
-    // Return unsubscribe function
-    return () => {
-      const index = this.listeners.indexOf(listener);
-      if (index >= 0) {
-        this.listeners.splice(index, 1);
-      }
-    };
-  }
-
-  private notifyListeners(): void {
-    for (const listener of this.listeners) {
-      try {
-        listener(this.services);
-      } catch (error) {
-        console.error('Error in store listener:', error);
-      }
-    }
+    return this.emitter.subscribe(listener);
   }
 }
 
-// Singleton instance
 export const serviceStore = new ServiceStore();
