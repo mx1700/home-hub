@@ -17,6 +17,17 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const stream = new ReadableStream({
     start(controller) {
+      let cleaned = false;
+
+      const cleanup = (): void => {
+        if (cleaned) return;
+        cleaned = true;
+        clearInterval(heartbeat);
+        unsubscribeServices();
+        unsubscribeCategories();
+        request.signal.removeEventListener('abort', cleanup);
+      };
+
       // Send initial data
       const services = serviceStore.getServices();
       const categoriesConfig = categoryManager.getConfig();
@@ -30,8 +41,8 @@ export async function loader({ request }: Route.LoaderArgs) {
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: 'services.update', services })}\n\n`)
           );
-        } catch (error) {
-          // Client disconnected, cleanup will be handled by cancel or heartbeat
+        } catch {
+          cleanup();
         }
       });
 
@@ -41,8 +52,8 @@ export async function loader({ request }: Route.LoaderArgs) {
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: 'categories.update', categoriesConfig })}\n\n`)
           );
-        } catch (error) {
-          // Client disconnected, cleanup will be handled by cancel or heartbeat
+        } catch {
+          cleanup();
         }
       });
 
@@ -50,17 +61,10 @@ export async function loader({ request }: Route.LoaderArgs) {
       const heartbeat = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(`:heartbeat\n\n`));
-        } catch (error) {
+        } catch {
           cleanup();
         }
       }, 30000);
-
-      const cleanup = () => {
-        clearInterval(heartbeat);
-        unsubscribeServices();
-        unsubscribeCategories();
-        request.signal.removeEventListener('abort', cleanup);
-      };
 
       cleanupFn = cleanup;
       request.signal.addEventListener('abort', cleanup, { once: true });

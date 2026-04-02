@@ -1,6 +1,7 @@
 import { DockerMonitor } from "./docker";
 import { IconManager } from "./icons";
 import { serviceStore } from "./store";
+import { categoryManager } from "./categories";
 
 const DOCKER_SOCKET = process.env.DOCKER_SOCKET || "/var/run/docker.sock";
 const DATA_DIR = process.env.DATA_DIR || "./data";
@@ -10,6 +11,7 @@ let initialized = false;
 let dockerMonitor: DockerMonitor | null = null;
 let iconManager: IconManager | null = null;
 let unsubscribeDocker: (() => void) | null = null;
+let memoryLogInterval: ReturnType<typeof setInterval> | null = null;
 
 export async function initializeServices() {
   if (initialized) return;
@@ -54,7 +56,7 @@ export async function initializeServices() {
   }
 }
 
-export function cleanup() {
+export function cleanup(): void {
   if (unsubscribeDocker) {
     unsubscribeDocker();
     unsubscribeDocker = null;
@@ -63,6 +65,11 @@ export function cleanup() {
     dockerMonitor.stopEventListener();
     dockerMonitor = null;
   }
+  if (memoryLogInterval) {
+    clearInterval(memoryLogInterval);
+    memoryLogInterval = null;
+  }
+  categoryManager.stopWatching();
   iconManager = null;
   initialized = false;
 }
@@ -77,7 +84,7 @@ export function getMemoryUsage() {
   };
 }
 
-setInterval(() => {
+memoryLogInterval = setInterval(() => {
   const mem = getMemoryUsage();
   console.log(`Memory: RSS=${mem.rss}MB, Heap=${mem.heapUsed}/${mem.heapTotal}MB`);
 }, 60000);

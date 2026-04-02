@@ -11,11 +11,18 @@ interface ContainerInfo {
   Labels?: Record<string, string>;
 }
 
+// Docker event actions that indicate a meaningful container state change
+const RELEVANT_ACTIONS = new Set([
+  'start', 'stop', 'die', 'destroy', 'create', 'pause', 'unpause',
+]);
+
 export class DockerMonitor {
   private docker: Docker;
   private dockerHostIp: string;
   private emitter = new EventEmitter<Service[]>();
   private eventStream: Readable | null = null;
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private static readonly DEBOUNCE_MS = 500;
 
   constructor(socketPath: string, dockerHostIp: string = 'localhost') {
     this.docker = new Docker({ socketPath });
@@ -75,25 +82,58 @@ export class DockerMonitor {
     const stream = (await this.docker.getEvents()) as any;
     this.eventStream = stream;
 
-    stream.on('data', async (chunk: Buffer) => {
+    stream.on('data', (chunk: Buffer) => {
       try {
         const event = JSON.parse(chunk.toString());
 
-        if (event.Type === 'container') {
-          const services = await this.scanServices();
-          this.emitter.emit(services);
+        if (event.Type === 'container' && RELEVANT_ACTIONS.has(event.Action)) {
+          this.debouncedScan();
         }
-      } catch (error) {
-        console.error('Error parsing Docker event:', error);
+      } catch {
+        // Partial chunk or malformed JSON - ignore
       }
     });
 
     stream.on('error', (error: Error) => {
       console.error('Docker event stream error:', error);
+      this.reconnectEventStream();
     });
   }
 
+  private debouncedScan(): void {
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+    }
+    this.debounceTimer = setTimeout(async () => {
+      this.debounceTimer = null;
+      try {
+        const services = await this.scanServices();
+        this.emitter.emit(services);
+      } catch (error) {
+        console.error('Error scanning services:', error);
+      }
+    }, DockerMonitor.DEBOUNCE_MS);
+  }
+
+  private reconnectEventStream(): void {
+    // Clean up old stream
+    if (this.eventStream) {
+      (this.eventStream as any).destroy();
+      this.eventStream = null;
+    }
+    // Reconnect after a short delay
+    setTimeout(() => {
+      this.startEventListener().catch((error) => {
+        console.error('Failed to reconnect Docker event stream:', error);
+      });
+    }, 5000);
+  }
+
   stopEventListener(): void {
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
     if (this.eventStream) {
       (this.eventStream as any).destroy();
       this.eventStream = null;
