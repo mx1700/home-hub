@@ -1,14 +1,16 @@
-import { ServiceCard } from './ServiceCard';
 import type { Service } from '~/types';
 import type { CategoriesConfig } from '~/lib/categories';
+import React from 'react';
 import { categoryManager } from '~/lib/categories';
+import { ServiceCard } from './ServiceCard';
 
 interface ServiceGridProps {
   services: Service[];
+  // Kept for backward compatibility - may be used in future features
   categoriesConfig: CategoriesConfig;
 }
 
-export function ServiceGrid({ services, categoriesConfig }: ServiceGridProps) {
+export function ServiceGrid({ services, categoriesConfig }: ServiceGridProps): React.ReactElement {
   if (services.length === 0) {
     return (
       <div className="flex h-64 items-center justify-center">
