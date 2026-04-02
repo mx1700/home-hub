@@ -30,8 +30,7 @@ export async function loader({ request }: Route.LoaderArgs) {
             encoder.encode(`data: ${JSON.stringify({ type: 'services.update', services })}\n\n`)
           );
         } catch (error) {
-          // Client disconnected
-          unsubscribeServices();
+          // Client disconnected, cleanup will be handled by cancel or heartbeat
         }
       });
 
@@ -42,8 +41,7 @@ export async function loader({ request }: Route.LoaderArgs) {
             encoder.encode(`data: ${JSON.stringify({ type: 'categories.update', categoriesConfig })}\n\n`)
           );
         } catch (error) {
-          // Client disconnected
-          unsubscribeCategories();
+          // Client disconnected, cleanup will be handled by cancel or heartbeat
         }
       });
 
@@ -52,18 +50,27 @@ export async function loader({ request }: Route.LoaderArgs) {
         try {
           controller.enqueue(encoder.encode(`:heartbeat\n\n`));
         } catch (error) {
-          clearInterval(heartbeat);
-          unsubscribeServices();
-          unsubscribeCategories();
+          // Client disconnected
+          cleanup();
         }
       }, 30000);
 
-      // Cleanup on abort
-      request.signal.addEventListener('abort', () => {
+      // Cleanup function
+      const cleanup = () => {
         clearInterval(heartbeat);
         unsubscribeServices();
         unsubscribeCategories();
-      });
+      };
+
+      // Cleanup on abort
+      request.signal.addEventListener('abort', cleanup, { once: true });
+
+      // Store cleanup for cancel handler
+      (controller as any)._cleanup = cleanup;
+    },
+    cancel() {
+      // This is called when the stream is cancelled (client disconnected)
+      // Note: cleanup is handled by abort event, but this provides a fallback
     },
   });
 

@@ -86,8 +86,16 @@ export class DockerMonitor {
     });
   }
 
-  onServicesUpdate(handler: (services: Service[]) => void): void {
+  onServicesUpdate(handler: (services: Service[]) => void): () => void {
     this.eventHandlers.push(handler);
+    
+    // Return unsubscribe function
+    return () => {
+      const index = this.eventHandlers.indexOf(handler);
+      if (index >= 0) {
+        this.eventHandlers.splice(index, 1);
+      }
+    };
   }
 
   private notifyHandlers(services: Service[]): void {

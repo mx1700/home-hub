@@ -7,6 +7,7 @@ export class IconManager {
   private iconsDir: string;
   private manifestPath: string;
   private manifest: IconManifest = {};
+  private iconFileCache: Map<string, string | null> = new Map();
 
   constructor(dataDir: string) {
     this.iconsDir = path.join(dataDir, 'icons');
@@ -42,13 +43,22 @@ export class IconManager {
     const hash = this.manifest[url];
     if (!hash) return null;
 
+    // Check cache first
+    const cached = this.iconFileCache.get(hash);
+    if (cached !== undefined) {
+      return cached;
+    }
+
     const files = fs.readdirSync(this.iconsDir);
     const iconFile = files.find(f => f.startsWith(hash));
 
     if (iconFile) {
-      return `/icons/${iconFile}`;
+      const iconPath = `/icons/${iconFile}`;
+      this.iconFileCache.set(hash, iconPath);
+      return iconPath;
     }
 
+    this.iconFileCache.set(hash, null);
     return null;
   }
 
