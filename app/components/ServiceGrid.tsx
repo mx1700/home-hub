@@ -1,12 +1,10 @@
 import React from 'react';
 import type { Service } from '~/types';
 import type { CategoriesConfig } from '~/lib/categories';
-import { categoryManager } from '~/lib/categories';
 import { ServiceCard } from './ServiceCard';
 
 interface ServiceGridProps {
   services: Service[];
-  // Kept for backward compatibility - may be used in future features
   categoriesConfig: CategoriesConfig;
 }
 
@@ -28,7 +26,21 @@ export function ServiceGrid({ services, categoriesConfig }: ServiceGridProps): R
     return acc;
   }, {} as Record<string, Service[]>);
 
-  const sortedCategories = categoryManager.getSortedCategories(Object.keys(grouped));
+  const getCategoryOrder = (categoryName: string): number => {
+    const category = categoriesConfig.categories.find(c => c.name === categoryName);
+    return category?.order ?? categoriesConfig.defaultOrder;
+  };
+
+  const sortedCategories = Object.keys(grouped).sort((a, b) => {
+    const orderA = getCategoryOrder(a);
+    const orderB = getCategoryOrder(b);
+
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+
+    return a.localeCompare(b, 'zh-CN');
+  });
 
   return (
     <div className="space-y-8">
