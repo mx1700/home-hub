@@ -18,7 +18,10 @@ export default function Home() {
       <header className="bg-white shadow-sm dark:bg-gray-800">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Home Hub</h1>
+            <div className="flex items-center gap-3">
+              <img src="/favicon.png" alt="Home Hub" className="h-8 w-8" />
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Home Hub</h1>
+            </div>
             <div className="flex items-center gap-2">
               <span
                 className={`h-3 w-3 rounded-full ${
